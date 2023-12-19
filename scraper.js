@@ -10,41 +10,36 @@ async function extractData(browser){
     const cheerio = require('cheerio');
     const page = await browser.newPage();
     await page.goto(initialUrl, {waitUntil: ['domcontentloaded','networkidle2']});
-    let html = await page.content();
-    let $ = await cheerio.load(html);
+    let html;
+    let $;
     const links = [];
-    const links2 = [];
-    let rawLinks = $('div[class="df8mizf atm_5sauks_glywfm dir dir-ltr"]').find('div[data-testid="card-container"]').find('a[aria-hidden="true"]').get();
-    let ind = 0;
-    rawLinks.forEach((link)=>{
-        if(Object.keys(link).length!=0){
-            ind++;
-            if(ind%6==0){
-                links.push(link.attribs['href']);
-            }
-        }
-    })
-    let nextButton= $('a[aria-label="Next"]').get();
+    let rawLinks = ""; 
+    let nextButton = "";
     let nextButtonLink = "";
-    nextButton.forEach((link)=>{
-        if(Object.keys(link).length!=0){
-            nextButtonLink = "https://www.airbnb.com/"+link.attribs['href'];
-           
-        } 
-    })
-    await page.goto(nextButtonLink, {waitUntil: ['domcontentloaded','networkidle2']});
-    html = await page.content();
-    $ = await cheerio.load(html);
-    let rawLinks2 = $('div[class="df8mizf atm_5sauks_glywfm dir dir-ltr"]').find('div[data-testid="card-container"]').find('a[aria-hidden="true"]').get();
-    ind = 0;
-    rawLinks2.forEach((link2)=>{
-        if(Object.keys(link2).length!=0){
-            ind++;
-            if(ind%6==0){
-                links.push(link2.attribs['href']);
+    let lastLink;
+    let lLink = "";
+    while(lastLink!=nextButtonLink){
+        lastLink = nextButtonLink;
+        html = await page.content();
+        $ = await cheerio.load(html);
+        rawLinks = $('div[class="df8mizf atm_5sauks_glywfm dir dir-ltr"]').find('div[data-testid="card-container"]').find('a[aria-hidden="true"]').get();
+        nextButton= $('a[aria-label="Next"]').get();
+        rawLinks.forEach((link)=>{
+            if(Object.keys(link).length!=0){
+                if(lLink!=link.attribs['href']){
+                    lLink = link.attribs['href'];
+                    links.push(link.attribs['href']);
+                }
             }
-        }
-    })
+        });
+        nextButton.forEach((link)=>{
+            if(Object.keys(link).length!=0){
+                nextButtonLink = "https://www.airbnb.com/"+link.attribs['href'];
+               
+            } 
+        });
+        await page.goto(nextButtonLink, {waitUntil: ['domcontentloaded','networkidle2']});
+    }
     console.log(links.length);
     //getNecessaryInfo(browser,initialUrl,$,cheerio);
     return;
@@ -70,6 +65,11 @@ function getAvailableDates(html,$){
     cleanedDates.forEach((ele)=>{
         console.log(ele.attribs['aria-label']);
     })
+}
+function getLastLink($){
+    const lastLink = $('nav[aria-label="Search results pagination"]').find('a').get();
+    const lLink = lastLink[lastLink.length-2].attribs["href"];
+    return lLink;
 }
 (async()=>{
     const browser = await initialize();
