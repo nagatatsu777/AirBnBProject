@@ -7,7 +7,6 @@ const async = require('async');
 async function initialize(){
     const puppeteer =  require('puppeteer');
     const browser = await puppeteer.launch({headless:false});
-   //const browser = await puppeteer.launch();
     return browser;
 }
 
@@ -18,10 +17,13 @@ async function extractData(browser){
     const url = "https://www.airbnb.com/rooms/49374597?category_tag=Tag%3A8047&enable_m3_private_room=true&photo_id=1397657353&check_in=2024-02-07&check_out=2024-02-08&source_impression_id=p3_1706995450_DpmitJLeKRmhQ%2FVP&previous_page_section_name=1000&federated_search_id=b7b49550-c147-45f4-8fee-b8ed8eb6e12b";
     const url3 = "https://www.airbnb.com/rooms/43317241?adults=1&children=0&enable_m3_private_room=true&infants=0&pets=0&source_impression_id=p3_1702953405_1FcmuSzQ46dfyoOm&previous_page_section_name=1000&federated_search_id=b8a01a5b-bd90-4bd2-a2e9-7059c710cfcd";
     const links = [url3];
+    const columns = ['RoomID','PropertyName','HostName','HostId','Price','Star','ReviewNumber','DatesAvailable','Amenities']
     const dataArray = [];
     let tArr = [];
+    dataArray.push(columns);
     const page = await browser.newPage();
     await page.goto(initialUrl, {waitUntil: ['domcontentloaded','networkidle2']});
+
    // await getLinks(links,page,cheerio);
    for(const link of links){
        tArr = await getNecessaryInfo(page,link,cheerio);
@@ -64,10 +66,9 @@ async function getNecessaryInfo(page,url,cheerio){
     const $ = await cheerio.load(html);
     arr.push(regUrlToId.exec(url)[0]);
     //Fields to scrape: name(WIP), price(done), review stars(done), number of reviews(done), host name, host id, host identity verification, neighborhood(low priority), neighborhood group(low priority), dates available for booking(halfway), Amenities, Safety & property, Cancellation Policy, 
-    //getData(arr, $);
-
-    //getAvailableDates(html,$);
-    await getAmenities(page,cheerio,arr);
+    getData(arr, $);
+    getAvailableDates($,arr);
+    getAmenities(page,cheerio,arr);
     return arr;
 }
 function getData(arr,$){
@@ -111,17 +112,21 @@ async function getAmenities(page,cheerio,arr){
     }
     return;
 }
-function getAvailableDates(html,$){
+function getAvailableDates($,arr){
     const dateList = [];
+    const regAvailable = /(.*?)\.\s(.*?)[\.\,\s]/;
     let availableDates = $('._2hyui6e').find('table').find('td[role="button"]').get();
-    availableDates.forEach(
-        (day)=>{
-           if(Object.keys(day).length!=0){dateList.push(day.attribs['aria-label']);}
-    });
     const cleanedDates = availableDates.filter((ele)=>Object.keys(ele.attribs).length!=0);
     cleanedDates.forEach((ele)=>{
-        console.log(ele.attribs['aria-label']);
+        let regData = regAvailable.exec(ele.attribs['aria-label']);
+        if(regData[2]=="Available"){
+            dateList.push([regData[1],"A"]);
+        }
+        else{
+            dateList.push([regData[1],"U"]);
+        }
     })
+    arr.push(dateList);
 }
 async function autoScroll(page, maxScrolls){
     await page.evaluate(async (maxScrolls) => {
